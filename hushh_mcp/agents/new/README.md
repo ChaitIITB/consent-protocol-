@@ -1,4 +1,8 @@
-# New LangGraph Project
+# Better Coding Agent
+
+This represents making a coding agent that leaverages private data that companies have, that they might not be willing to share with the LLMs that they are using. 
+
+## Working with the agent 
 
 [![CI](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/unit-tests.yml)
 [![Integration Tests](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/langchain-ai/new-langgraph-project/actions/workflows/integration-tests.yml)
@@ -9,7 +13,7 @@ This template demonstrates a simple application implemented using [LangGraph](ht
   <img src="./static/studio_ui.png" alt="Graph view in LangGraph studio UI" width="75%" />
 </div>
 
-The core logic defined in `src/agent/graph.py`, showcases an single-step application that responds with a fixed string and the configuration provided.
+The core logic defined in `src/agent/graph.py`, works on the idea that the problem with older coding agents is the fact that they didn't levarage the current codebase that company has. 
 
 You can extend this graph to orchestrate more complex agentic workflows that can be visualized and debugged in LangGraph Studio.
 
