@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-os.environ["GOOGLE_API_KEY"] = "AIzaSyCPMRcMHRwf4TQc6DWAuZgQRu7cTMi5lJo"
+
 
 config = 'free'
 
