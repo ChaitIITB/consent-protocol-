@@ -7,6 +7,7 @@ from langgraph.prebuilt import create_react_agent
 from typing_extensions import Annotated, TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
+from langgraph_supervisor import create_supervisor
 
 def _set_if_undefined(var: str):
     if not os.environ.get(var):
@@ -29,6 +30,19 @@ planning_tools = [
 tools = [
     google_search,
 ]
+
+
+llm_planning = create_react_agent(
+    model="google/gemini-1.5-flash",
+    tools=planning_tools,
+    prompt=(
+        "You are a planning agent managing a variable number of agents:\n"
+        "- a research agent. Assign research-related tasks to this agent\n"
+        "- a math agent. Assign math-related tasks to this agent\n"
+        "Assign work to one agent at a time, do not call agents in parallel.\n"
+        "Do not do any work yourself."
+    ),
+)
 
 supervisor_agent = create_react_agent(
     model="openai:gpt-4.1",
@@ -70,8 +84,28 @@ class Int_State(TypedDict):
     user_feedback: str
     messages: Annotated[list[str], add_messages]
 
-graph_builder = StateGraph(
 
+## Without supervisor
+graph_builder = StateGraph(
+    Int_State,
     input_state=InputState,
     output_state=OutputState
 )
+
+## With supervisor
+supervisor_graph_builder = create_supervisor(
+    model=llm_planning,
+    agents=[],
+    prompt=(
+        "You are a planning agent managing a variable number of agents:\n"
+        "- a research agent. Assign research-related tasks to this agent\n"
+        "- a math agent. Assign math-related tasks to this agent\n"
+        "Assign work to one agent at a time, do not call agents in parallel.\n"
+        "Do not do any work yourself."
+    ),
+    add_handoff_back_messages=True,
+    output_mode="full_history",
+)
+
+
+
