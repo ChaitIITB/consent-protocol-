@@ -102,10 +102,20 @@ supervisor_graph_builder = create_supervisor(
         "- a math agent. Assign math-related tasks to this agent\n"
         "Assign work to one agent at a time, do not call agents in parallel.\n"
         "Do not do any work yourself."
+        "Make sure you delegate tasks in such a order that each agent gets only one function at a time."
+        "Your aim is to create a plan that can be executed by the agents.\n"
+        "You are a very good person and always try to help others, and reduce the load on individual agents\n"
     ),
     add_handoff_back_messages=True,
     output_mode="full_history",
-)
+).compile
 
 
-
+planner = (
+    StateGraph(
+        Int_State,
+        input_state=InputState,
+        output_state=OutputState
+    ).add_node(supervisor_agent, "planning_agent", destinations=("coding_agent", "search_agent"))
+    .add_node()
+    )
