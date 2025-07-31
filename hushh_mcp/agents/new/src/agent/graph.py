@@ -63,10 +63,9 @@ supervisor_agent = create_react_agent(
     model="google_genai:gemini-2.0-flash",
     tools=tools,
     prompt=(
-        "You are a supervisor managing two agents:\n"
-        "- a research agent. Assign research-related tasks to this agent\n"
-        "- a math agent. Assign math-related tasks to this agent\n"
-        "Assign work to one agent at a time, do not call agents in parallel.\n"
+        "You are a supervisor managing two coding agents:\n"
+        "You are to assign tasks to the coding agents based on the instructions provided.\n"
+        "Call agents in parallel, and map tasks in such a way that each agent gets only one function at a time, and the tasks each agent recieves is sequential and independant from what other is doing\n"
         "Do not do any work yourself."
     ),
     name="supervisor",
@@ -87,7 +86,8 @@ def create_coding_agents(name, llm: create_react_agent, tools: list[Tool]) -> cr
 
 
 class InputState(TypedDict):
-    user_input: str
+    user_input: str | None
+    messages: Annotated[list[str], add_messages]
 
 class OutputState(TypedDict):
     agent_results: list[dict]
