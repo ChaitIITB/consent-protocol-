@@ -140,15 +140,15 @@ coding_agent2 = create_coding_agents(
 
 planner = (
     StateGraph(
-        Int_State,
+        InputState,
         input_state=InputState,
         output_state=OutputState
-    ).add_node(supervisor_agent, "planning_agent", destinations=("coding_agent", "coding_agent2", END))
-    .add_node(coding_agent)
+    ).add_node(supervisor_agent, destinations=("coding_agent", "coding_agent2", END))
+    .add_node(coding_agent, "coding_agent")
     .add_node(coding_agent2, "coding_agent2")
-    .add_edge(START, "planning_agent")
-    .add_edge("coding_agent", "planning_agent")
-    .add_edge("coding_agent2", "planning_agent")
+    .add_edge(START, "supervisor")
+    .add_edge("coding_agent", "supervisor")
+    .add_edge("coding_agent2", "supervisor")
     .compile()
     )
 
