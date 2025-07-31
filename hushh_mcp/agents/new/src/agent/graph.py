@@ -32,6 +32,9 @@ tools = [
 ]
 
 
+# TODO: Adding a planning agent, which is independant of langgraph
+# TODO: This agent will be used to plan the execution of other agents
+
 llm_planning = create_react_agent(
     model="google/gemini-1.5-flash",
     tools=planning_tools,
@@ -110,6 +113,11 @@ supervisor_graph_builder = create_supervisor(
     output_mode="full_history",
 ).compile
 
+coding_agent = create_coding_agents(
+    name="coding_agent",
+    llm=llm_planning,
+    tools=tools
+)
 
 planner = (
     StateGraph(
@@ -117,5 +125,5 @@ planner = (
         input_state=InputState,
         output_state=OutputState
     ).add_node(supervisor_agent, "planning_agent", destinations=("coding_agent", "search_agent"))
-    .add_node()
+    .add_node(coding_agent)
     )
