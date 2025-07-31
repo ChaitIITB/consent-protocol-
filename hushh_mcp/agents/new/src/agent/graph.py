@@ -1,6 +1,6 @@
 import getpass
 import os
-from typing import TypedDict
+from typing import TypedDict, NotRequired
 from langchain.chat_models import init_chat_model
 from langchain_google_community import GoogleSearchAPIWrapper
 from langchain.tools import Tool
@@ -9,6 +9,13 @@ from typing_extensions import Annotated, TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph_supervisor import create_supervisor
+from typing import Annotated
+from langchain_core.tools import tool, InjectedToolCallId
+from langgraph.prebuilt import InjectedState
+from langgraph.graph import StateGraph, START, MessagesState
+from langgraph.types import Command
+from plannersup import plannergraph
+
 
 def _set_if_undefined(var: str):
     if not os.environ.get(var):
@@ -16,6 +23,47 @@ def _set_if_undefined(var: str):
 
 
 _set_if_undefined("GEMINI_API_KEY") 
+
+
+from langgraph.types import Send
+
+
+def create_task_description_handoff_tool(
+    *, agent_name: str, description: str | None = None
+):
+    name = f"transfer_to_{agent_name}"
+    description = description or f"Ask {agent_name} for help."
+
+    @tool(name, description=description)
+    def handoff_tool(
+        # this is populated by the supervisor LLM
+        task_description: Annotated[
+            str,
+            "Description of what the next agent should do, including all of the relevant context.",
+        ],
+        # these parameters are ignored by the LLM
+        state: Annotated[MessagesState, InjectedState],
+    ) -> Command:
+        task_description_message = {"role": "user", "content": task_description}
+        agent_input = {**state, "messages": [task_description_message]}
+        return Command(
+            goto=[Send(agent_name, agent_input)],
+            graph=Command.PARENT,
+        )
+
+    return handoff_tool
+
+assign_to_coding_agent_with_description = create_task_description_handoff_tool(
+    agent_name="coding_agent",
+    description="Assign task to a coding agent.",
+)
+
+assign_to_coding_agent2_with_description = create_task_description_handoff_tool(
+    agent_name="math_agent",
+    description="Assign task to 2nd coding agent.",
+)
+
+
 
 search = GoogleSearchAPIWrapper(google_api_key=os.environ.get("GOOGLE_API_KEY"),
                                 google_cse_id=os.environ.get("GOOGLE_CSE_ID"))
@@ -28,6 +76,8 @@ google_search = Tool(
 
 planning_tools = [
     google_search,
+    assign_to_coding_agent_with_description,
+    assign_to_coding_agent2_with_description,
 ]
 
 tools = [
@@ -59,16 +109,16 @@ llm_coding = init_chat_model(
     ),
 )
 
-supervisor_agent = create_react_agent(
+planning_agent = create_react_agent(
     model="google_genai:gemini-2.0-flash",
-    tools=tools,
+    tools= planning_tools,
     prompt=(
         "You are a supervisor managing two coding agents:\n"
         "You are to assign tasks to the coding agents based on the instructions provided.\n"
         "Call agents in parallel, and map tasks in such a way that each agent gets only one function at a time, and the tasks each agent recieves is sequential and independant from what other is doing\n"
         "Do not do any work yourself."
     ),
-    name="supervisor",
+    name="planning_agent",
 ) 
 
 def create_coding_agents(name, llm: create_react_agent, tools: list[Tool]) -> create_react_agent:
@@ -86,7 +136,7 @@ def create_coding_agents(name, llm: create_react_agent, tools: list[Tool]) -> cr
 
 
 class InputState(TypedDict):
-    user_input: str | None
+    user_input: NotRequired[str] 
     messages: Annotated[list[str], add_messages]
 
 class OutputState(TypedDict):
@@ -118,38 +168,38 @@ coding_agent2 = create_coding_agents(
     tools=tools
 )
 
-## With supervisor
-# graph = create_supervisor(
-#     model=llm_planning,
-#     agents=[coding_agent],
-#     prompt=(
-#         "You are a planning agent managing a variable number of agents:\n"
-#         "- a research agent. Assign research-related tasks to this agent\n"
-#         "- a math agent. Assign math-related tasks to this agent\n"
-#         "Assign work to one agent at a time, do not call agents in parallel.\n"
-#         "Do not do any work yourself."
-#         "Make sure you delegate tasks in such a order that each agent gets only one function at a time."
-#         "Your aim is to create a plan that can be executed by the agents.\n"
-#         "You are a very good person and always try to help others, and reduce the load on individual agents\n"
-#     ),
-#     add_handoff_back_messages=True,
-#     output_mode="full_history",
-# ).compile
+# With supervisor
+graph = plannergraph(
+    model=llm_planning,
+    agents=[coding_agent, coding_agent2],
+    prompt=(
+        "You are a planning agent managing a variable number of agents:\n"
+        "- a research agent. Assign research-related tasks to this agent\n"
+        "- a math agent. Assign math-related tasks to this agent\n"
+        "Assign work to one agent at a time, do not call agents in parallel.\n"
+        "Do not do any work yourself."
+        "Make sure you delegate tasks in such a order that each agent gets only one function at a time."
+        "Your aim is to create a plan that can be executed by the agents.\n"
+        "You are a very good person and always try to help others, and reduce the load on individual agents\n"
+    ),
+    add_handoff_back_messages=True,
+    output_mode="full_history",
+).compile()
 
 
 
-planner = (
-    StateGraph(
-        InputState,
-        input_state=InputState,
-        output_state=OutputState
-    ).add_node(supervisor_agent, destinations=("coding_agent", "coding_agent2", END))
-    .add_node(coding_agent, "coding_agent")
-    .add_node(coding_agent2, "coding_agent2")
-    .add_edge(START, "supervisor")
-    .add_edge("coding_agent", "supervisor")
-    .add_edge("coding_agent2", "supervisor")
-    .compile()
-    )
+# planner = (
+#     StateGraph(
+#         InputState,
+#         input_state=InputState,
+#         output_state=OutputState
+#     ).add_node(planning_agent, destinations=("coding_agent", "coding_agent2", END))
+#     .add_node(coding_agent, "coding_agent")
+#     .add_node(coding_agent2, "coding_agent2")
+#     .add_edge(START, "planning_agent")
+#     .add_edge("coding_agent", "planning_agent")
+#     .add_edge("coding_agent2", "planning_agent")
+#     .compile()
+#     )
 
-graph = planner
+# graph = planner
